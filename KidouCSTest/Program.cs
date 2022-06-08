@@ -19,6 +19,8 @@ namespace KidouCSTest
 
             LadeKommandos();
             
+            LadeDrugs();
+            
             /* Überprüfe die Initialisierung
              * 
              */
@@ -90,6 +92,46 @@ namespace KidouCSTest
             KidouModelHandler.LM_Greedy_init_withmodelnumber(3);
         }
 
+        /* Lädt die MedikamentenListe */
+        public static void LadeDrugs()
+        {
+            String drugs_json = @"
+            { ""drugs"":
+              [
+            {""name"": ""paracetamol"", ""id"":1},
+            {""name"": ""aspirin"", ""id"":2},
+            {""name"": ""adrenalin"", ""id"":3},
+            {""name"": ""akrinor"", ""id"":4},
+            {""name"": ""atropin"", ""id"":5},
+            {""name"": ""dobutamin"", ""id"":6},
+            {""name"": ""naloxon"", ""id"":7},
+            {""name"": ""lidocain"", ""id"":8},
+
+            {""name"": ""diazepam"", ""id"":9},
+            {""name"": ""valium"", ""id"":9},
+
+            {""name"": ""epinephrin"", ""id"":10},
+            {""name"": ""adrenalin"", ""id"":10}
+            ],
+            ""forms"":
+            [
+            {""name"": ""oral"", ""id"":1},
+            {""name"": ""intravenös"", ""id"":2},
+            {""name"": ""lokal"", ""id"":3},
+            {""name"": ""parental"", ""id"":4}
+            ],
+            ""units"":
+            [
+            {""name"": ""milliliter"", ""id"":1},
+            {""name"": ""liter"", ""id"":2},
+            {""name"": ""gramm"", ""id"":3},
+            {""name"": ""mikrogramm"", ""id"":4},
+            {""name"": ""milligramm"", ""id"":5}
+            ]
+        }
+            ";
+            EM_Native.init_drugs(drugs_json);
+        }
         /* Lädt die KommandoListe */
         public static void LadeKommandos()
         {
@@ -153,7 +195,7 @@ namespace KidouCSTest
             {""id"":0, ""text"": ""an den anfang""}
             ]";
             
-            EM_Native.init(commands_json);
+            EM_Native.init_commands(commands_json);
         }
         
         /* Lädt das Menü */
@@ -258,8 +300,17 @@ namespace KidouCSTest
         public static void KidouModelTextEventAvailable(object s, KidouModelTextEventArgs e)
         {
             // Variante dass man immer den Text zurückgibt (Freitext Diktat in Felder)
-            Console.WriteLine("model {0} returned: {1}", e.ModelNumber, e.DetectedText);
-         
+            Console.WriteLine("Model {0} returned: {1}", e.ModelNumber, e.DetectedText);
+
+            if (e.ModelNumber == 1)
+            {
+                var postprocessed = EM_Native.replace_all_numbers(e.DetectedText).AsString();
+                if (postprocessed != e.DetectedText)
+                {
+                    Console.WriteLine("Mit Nummernersetzung: {0}", postprocessed);
+                }
+            }
+            
             // Beim Kommando Model auch nach Kommando abgleichen und nach Konfidenz filtern
             if (e.ModelNumber == 2)
             {
@@ -277,6 +328,19 @@ namespace KidouCSTest
                     Console.WriteLine("Unsicher. Wiederhole. (höchstwahrscheinlich: {0}", command);
                 }
             }
+
+            if (e.ModelNumber == 3)
+            {
+                String drug = EM_Native.check_drug(e.DetectedText).AsString();
+                var jsondata = (JObject) JsonConvert.DeserializeObject(drug);
+                var drug_id = jsondata["drug_id"].Value<int>();
+                if (drug_id != 0)
+                {
+                    Console.WriteLine("Medikament erkannt: {0}", drug);
+                }
+            }
+                
+
         }
     }
 }
