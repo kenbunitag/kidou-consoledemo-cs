@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Text;
 using KidouCS;
 using Newtonsoft.Json;
@@ -38,8 +39,12 @@ namespace KidouCSTest
              * 1stes Microphone selectiert aber inaktiv
              * alle Modelle inaktiv
              */
-            mic = KidouMicrophoneHandler.TryOpenFirstMicrophone(KidouModelHandler.MicDataAvailable);
-
+            KidouMicrophoneHandler.KidouDataAvailable += KidouModelHandler.MicDataAvailable;
+            KidouMicrophoneHandler.PrintDeviceListToConsole();
+            List<string> microphones = KidouMicrophoneHandler.EnumerateDeviceNames();
+            KidouMicrophoneHandler.SelectMicrophone(microphones[0]);
+            Console.WriteLine("Selected Microphone No. 1 for you:" + microphones[0]);
+            
             KidouModelHandler.ChangeModelActivationStatus(1, false);
             KidouModelHandler.ChangeModelActivationStatus(2, false);
             KidouModelHandler.ChangeModelActivationStatus(3, false);
@@ -61,6 +66,9 @@ namespace KidouCSTest
          */
         public static void LadeModelle()
         {
+            KidouModelHandler.DN_init(".\\models\\dn\\de-normalization-2020-04-15.pt", 
+                ".\\models\\dn\\vocab-electra.txt");
+            
             KidouModelHandler.VAD_init(".\\models\\vad\\vad.jit");
             
             KidouModelHandler.STT_init_withmodelnumber(1,
@@ -207,7 +215,7 @@ namespace KidouCSTest
              */
             while (true)
             {
-                Console.WriteLine("Press [E]=End, [1|2|3] Toggle Models, [S] Start Stop Microphone Listener, [M] show microphone list, [M1,M2, ... MX] select microphone");
+                Console.WriteLine("Press [E]=End, [1|2|3] Toggle Models, [S] Start,[T] Stop Microphone Listener, [M] show microphone list, [M1,M2, ... MX] select microphone");
                 string prompt = Console.ReadLine();
                 if (prompt == null || prompt == "")
                 {
@@ -269,10 +277,10 @@ namespace KidouCSTest
                     try
                     {
                         int deviceNumber = Int32.Parse(deviceNumberString);
-                        mic.StopMicrophoneListener();
-                        mic = KidouMicrophoneHandler.TryOpenMicrophoneByDeviceNumber(deviceNumber,
-                            KidouModelHandler.MicDataAvailable);
-                        mic.StartMicrophoneListener();
+                        KidouMicrophoneHandler.StopMicrophoneListener();
+                        List<string> microphones = KidouMicrophoneHandler.EnumerateDeviceNames();
+                        KidouMicrophoneHandler.SelectMicrophone(microphones[deviceNumber]);
+                        KidouMicrophoneHandler.StartMicrophoneListener();
                     }
                     catch (FormatException)
                     {
@@ -282,16 +290,18 @@ namespace KidouCSTest
                 
                 // Aktivierung
                 if (prompt.ToUpper() == "S")
-                    if (mic.processingActivated)
-                    {
-                        Console.WriteLine("[S] Microphone deactivated now");
-                        mic.StopMicrophoneListener();
-                    }
-                    else
                     {
                         Console.WriteLine("[S] Microphone activated now");
-                        mic.StartMicrophoneListener();
+                        KidouMicrophoneHandler.StartMicrophoneListener();
                     }
+                
+                // Stop the Microphone Listener
+                if (prompt.ToUpper() == "T")
+                    {
+                        Console.WriteLine("[T] Microphone deactivated now");
+                        KidouMicrophoneHandler.StopMicrophoneListener();
+                    }
+
             }
         }
         
@@ -309,6 +319,9 @@ namespace KidouCSTest
                 {
                     Console.WriteLine("Mit Nummernersetzung: {0}", postprocessed);
                 }
+                var tmp = DN_Native.denormalize(postprocessed).AsString();
+                Console.WriteLine("Denormaliziert: {0}", tmp);
+                
             }
             
             // Beim Kommando Model auch nach Kommando abgleichen und nach Konfidenz filtern
